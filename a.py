@@ -18,8 +18,7 @@ async def handle_ip_port(event):
 
     # Send initial message with buttons
     message = await event.respond(
-        f"ɪᴘ {ip}\nᴘᴏʀᴛ {port}\nsᴛᴀᴛᴜs :
-", 
+        f"ɪᴘ {ip}\nᴘᴏʀᴛ {port}\nsᴛᴀᴛᴜs :", 
         buttons=[
             [Button.inline("Start", data=f"start|{ip}|{port}|{duration}")]
         ]
