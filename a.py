@@ -53,6 +53,20 @@ async def handle_buttons(event):
                 [Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
             ])
 
+        # Wait for the specified duration before stopping the attack
+        await asyncio.sleep(duration)
+
+        # Stop the attack and update the message with 'Attack stopped'
+        process = running_processes.pop((chat_id, ip, port), None)
+        if process:
+            process.terminate()
+
+            # Update message with attack status and replace button with 'Start'
+            if message_id:
+                await client.edit_message(chat_id, message_id, f"ɪᴘ {ip.decode()}\nᴘᴏʀᴛ {port.decode()}\nsᴛᴀᴛᴜs: Aᴛᴛᴀᴄᴋ sᴛᴏᴘᴘᴇᴅ", buttons=[
+                    [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|60")]
+                ])
+
     elif action == b"stop":
         process = running_processes.pop((chat_id, ip, port), None)
         if process:
