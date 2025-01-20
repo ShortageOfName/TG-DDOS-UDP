@@ -2,7 +2,6 @@ from telethon import TelegramClient, events, Button
 import asyncio
 import os
 
-
 # Replace with your own values
 api_id = "22157690"
 api_hash = "819a20b5347be3a190163fff29d59d81"
@@ -29,7 +28,11 @@ async def handle_ip_port(event):
 async def handle_buttons(event):
     action, ip, port, duration = event.pattern_match.groups()
     chat_id = event.chat_id
-    duration = int(duration.decode())
+    
+    # Decode the bytes if needed and handle empty values properly
+    ip = ip.decode() if isinstance(ip, bytes) else ip
+    port = port.decode() if isinstance(port, bytes) else port
+    duration = int(duration.decode()) if isinstance(duration, bytes) else int(duration)
 
     if action == b"start":
         if (chat_id, ip, port) in running_processes:
@@ -37,12 +40,12 @@ async def handle_buttons(event):
             return
 
         await event.answer("Starting the attack...", alert=True)
-        process = await run_attack(chat_id, ip.decode(), port.decode(), duration)
+        process = await run_attack(chat_id, ip, port, duration)
 
         # Update message to show attack status and countdown
         msg = running_processes[(chat_id, ip, port)]['message']
         running_processes[(chat_id, ip, port)] = {'process': process, 'message': msg, 'duration': duration}
-        await update_message(msg, ip.decode(), port.decode(), 'Attack ongoing', duration)
+        await update_message(msg, ip, port, 'Attack ongoing', duration)
 
     elif action == b"stop":
         process_info = running_processes.pop((chat_id, ip, port), None)
@@ -51,7 +54,7 @@ async def handle_buttons(event):
             await event.answer("Attack stopped successfully!", alert=True)
 
             # Update message to show that the attack is stopped
-            await update_message(process_info['message'], ip.decode(), port.decode(), 'Attack stopped', 0)
+            await update_message(process_info['message'], ip, port, 'Attack stopped', 0)
         else:
             await event.answer("No running attack to stop!", alert=True)
 
