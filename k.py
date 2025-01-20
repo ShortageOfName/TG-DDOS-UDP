@@ -14,10 +14,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MONGO_URI = 'mongodb://shortageofname:nHqbLTaqOmgr0hdf@undefined/?replicaSet=atlas-d0lnk1-shard-0&ssl=true&authSource=admin'
+MONGO_URI = 'mongodb+srv://Vampirexcheats:vampirexcheats1@cluster0.omdzt.mongodb.net/TEST?retryWrites=true&w=majority&appName=Cluster0'
 client = MongoClient(MONGO_URI)
 db = client['TEST']
-users_collection = db['uusers']
+users_collection = db['VAMPIREXCHEATS']
 redeem_codes_collection = db['redeem_codes0']
 
 TELEGRAM_BOT_TOKEN = '7483201528:AAElIxI0_iaD1lxxHwcXtPBYDqZHQkaKlpE'
