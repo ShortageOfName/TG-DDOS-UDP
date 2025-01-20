@@ -49,7 +49,7 @@ async def handle_buttons(event):
 
         # Update message with attack status and replace button with 'Stop'
         if message_id:
-            await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack ongoing", buttons=[
+            await client.edit_message(chat_id, message_id, f"ɪᴘ {ip.decode()}\nᴘᴏʀᴛ {port.decode()}\nsᴛᴀᴛᴜs: Aᴛᴛᴀᴄᴋ ᴏɴɢᴏɪɴɢ", buttons=[
                 [Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
             ])
 
@@ -60,7 +60,7 @@ async def handle_buttons(event):
 
             # Update message with attack status and replace button with 'Start'
             if message_id:
-                await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack stopped", buttons=[
+                await client.edit_message(chat_id, message_id, f"ɪᴘ {ip.decode()}\nᴘᴏʀᴛ {port.decode()}\nsᴛᴀᴛᴜs: Aᴛᴛᴀᴄᴋ sᴛᴏᴘᴘᴇᴅ", buttons=[
                     [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|60")]
                 ])
         else:
