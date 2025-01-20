@@ -38,7 +38,10 @@ async def handle_buttons(event):
         
         # Update message with attack starting status and countdown
         message = await event.edit(
-            f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack ongoing\nTime: {duration}s"
+            f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack ongoing\nTime: {duration}s",
+            buttons=[
+                [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|{duration}"), Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
+            ]
         )
         message_cache[(chat_id, ip, port)] = message
         
@@ -54,7 +57,12 @@ async def handle_buttons(event):
             # Update message to show attack stopped
             message = message_cache.get((chat_id, ip, port))
             if message:
-                await message.edit(f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack stopped")
+                await message.edit(
+                    f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack stopped",
+                    buttons=[
+                        [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|{duration.decode()}"), Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
+                    ]
+                )
                 del message_cache[(chat_id, ip, port)]
         else:
             await event.answer("No running attack to stop!", alert=True)
@@ -82,11 +90,19 @@ async def countdown_timer(chat_id, ip, port, duration, message):
         await asyncio.sleep(1)
         remaining_time -= 1
         await message.edit(
-            f"IP: {ip}:{port}\nStatus: Attack ongoing\nTime: {remaining_time}s"
+            f"IP: {ip}:{port}\nStatus: Attack ongoing\nTime: {remaining_time}s",
+            buttons=[
+                [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
+            ]
         )
     # After countdown reaches 0, stop attack and update status
     if (chat_id, ip, port) in running_processes:
-        await message.edit(f"IP: {ip}:{port}\nStatus: Attack stopped")
+        await message.edit(
+            f"IP: {ip}:{port}\nStatus: Attack stopped",
+            buttons=[
+                [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
+            ]
+        )
         del running_processes[(chat_id, ip, port)]
 
 async def monitor_process(chat_id, process):
