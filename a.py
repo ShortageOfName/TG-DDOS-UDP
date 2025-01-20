@@ -2,6 +2,7 @@ from telethon import TelegramClient, events, Button
 import asyncio
 import os
 
+
 # Replace with your own values
 api_id = "22157690"
 api_hash = "819a20b5347be3a190163fff29d59d81"
