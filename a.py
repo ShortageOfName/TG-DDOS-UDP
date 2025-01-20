@@ -18,7 +18,7 @@ async def handle_ip_port(event):
 
     # Send initial message with buttons
     message = await event.respond(
-        f"Received IP: {ip}, Port: {port}, Duration: {duration}\nChoose an action:",
+        f"{ip} {port}\nStatus: ",
         buttons=[
             [Button.inline("Start", data=f"start|{ip}|{port}|{duration}")]
         ]
@@ -35,6 +35,7 @@ async def handle_buttons(event):
         if (chat_id, ip, port) in running_processes:
             return
 
+        # Set the duration as 60 seconds if not provided
         duration = int(duration.decode()) if duration else 60
 
         # Run attack and update message with status
