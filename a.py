@@ -64,6 +64,9 @@ async def handle_buttons(event):
                     ]
                 )
                 del message_cache[(chat_id, ip, port)]
+                
+            # Stop the countdown and make sure it doesn't reappear
+            running_processes[(chat_id, ip, port)] = None
         else:
             await event.answer("No running attack to stop!", alert=True)
 
@@ -113,6 +116,8 @@ async def monitor_process(chat_id, process, message):
 async def countdown_timer(chat_id, ip, port, duration, message):
     remaining_time = duration
     while remaining_time > 0:
+        if (chat_id, ip, port) not in running_processes or running_processes[(chat_id, ip, port)] is None:
+            return  # Stop the countdown if the attack has been stopped
         await asyncio.sleep(1)
         remaining_time -= 1
         await message.edit(
@@ -121,6 +126,7 @@ async def countdown_timer(chat_id, ip, port, duration, message):
                 [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
             ]
         )
+    
     # After countdown reaches 0, stop attack and update status
     if (chat_id, ip, port) in running_processes:
         await message.edit(
