@@ -60,12 +60,13 @@ async def handle_buttons(event):
                 await message.edit(
                     f"IP: {ip.decode()}:{port.decode()}\nStatus: Attack stopped",
                     buttons=[
-                        [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|{duration.decode()}"), Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
+                        [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|{duration}"), Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
                     ]
                 )
                 del message_cache[(chat_id, ip, port)]
         else:
             await event.answer("No running attack to stop!", alert=True)
+
 
 async def run_attack(chat_id, ip, port, duration, message):
     try:
