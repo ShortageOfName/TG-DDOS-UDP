@@ -42,7 +42,7 @@ async def handle_buttons(event):
         await event.answer("Starting the attack...", alert=True)
         process = await run_attack(chat_id, ip, port, duration)
 
-        # Update message to show attack status and countdown
+        # Ensure the message is properly set before attempting to update
         msg = running_processes[(chat_id, ip, port)]['message']
         running_processes[(chat_id, ip, port)] = {'process': process, 'message': msg, 'duration': duration}
         await update_message(msg, ip, port, 'Attack ongoing', duration)
@@ -81,7 +81,10 @@ async def countdown_timer(chat_id, ip, port, duration):
 async def update_message(msg, ip, port, status, remaining_time):
     # Update the original message with the new status and time
     updated_message = f"{ip}:{port}\nStatus: {status}\nTime remaining: {remaining_time}s" if status == 'Attack ongoing' else f"{ip}:{port}\nStatus: {status}"
-    await msg.edit(updated_message)
+    try:
+        await msg.edit(updated_message)
+    except Exception as e:
+        print(f"Error updating message: {e}")
 
 if __name__ == "__main__":
     client.run_until_disconnected()
