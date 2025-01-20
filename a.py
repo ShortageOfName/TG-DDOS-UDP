@@ -35,6 +35,7 @@ async def handle_buttons(event):
         if (chat_id, ip, port) in running_processes:
             return
 
+        # Set the duration as 60 seconds if not provided
         duration = int(duration.decode()) if duration else 60
 
         # Run attack and update message with status
@@ -48,7 +49,7 @@ async def handle_buttons(event):
 
         # Update message with attack status and replace button with 'Stop'
         if message_id:
-            await client.edit_message(chat_id, message_id, f"{ip.decode()} {port.decode()}\nStatus: Attack ongoing", buttons=[
+            await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack ongoing", buttons=[
                 [Button.inline("Stop", data=f"stop|{ip.decode()}|{port.decode()}")]
             ])
 
@@ -59,7 +60,7 @@ async def handle_buttons(event):
 
             # Update message with attack status and replace button with 'Start'
             if message_id:
-                await client.edit_message(chat_id, message_id, f"{ip.decode()} {port.decode()}\nStatus: Attack stopped", buttons=[
+                await client.edit_message(chat_id, message_id, f"{ip.decode()}:{port.decode()}\nStatus: Attack stopped", buttons=[
                     [Button.inline("Start", data=f"start|{ip.decode()}|{port.decode()}|60")]
                 ])
         else:
