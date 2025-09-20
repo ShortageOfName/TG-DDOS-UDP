@@ -14,14 +14,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MONGO_URI = 'mongodb+srv://Vampirexcheats:vampirexcheats1@cluster0.omdzt.mongodb.net/TEST?retryWrites=true&w=majority&appName=Cluster0'
+MONGO_URI = 'mongodb+srv://yyy:yyy@cluster0.omdzt.mongodb.net/TEST?retryWrites=true&w=majority&appName=Cluster0' #mongo cluster url
 client = MongoClient(MONGO_URI)
 db = client['TEST']
-users_collection = db['VAMPIREXCHEATS']
+users_collection = db['MainDB']
 redeem_codes_collection = db['redeem_codes0']
 
-TELEGRAM_BOT_TOKEN = '7483201528:AAElIxI0_iaD1lxxHwcXtPBYDqZHQkaKlpE'
-ADMIN_USER_ID = 2092103173
+TELEGRAM_BOT_TOKEN = '7483201518:AAElIxI0_iaD1lxdHwcXtPBYDqZHQkaKlpE' ##ADD Bot token here
+ADMIN_USER_ID = 2092103173 #Add admin user id here
+
 
 cooldown_dict = {}
 user_attack_history = {}
