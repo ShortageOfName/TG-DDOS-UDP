@@ -2,9 +2,9 @@ from telethon import TelegramClient, events, Button
 import asyncio
 
 # Replace with your own values
-api_id = "22157690"
-api_hash = "819a20b5347be3a190163fff29d59d81"
-bot_token = "7483201528:AAElIxI0_iaD1lxxHwcXtPBYDqZHQkaKlpE"
+api_id = "22157633" 
+api_hash = "819a20b5347be3a110163fff29d59d81"
+bot_token = "7483201528:AAElIxI0_iaD1lxxHwcXtPBYDqssQkaKlpE"
 
 client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 
